@@ -4,22 +4,40 @@
 //
 //  Created by Emma Foster on 7/4/19.
 //
-
 import Foundation
 
+/// Storage Engine
 public class Storage<Key: Comparable & Codable, Value: Codable> {
     
+    // MARK: Properties
+    
+    /// Path to store B-Tree on disk
     public var path: URL
+    
+    /// File the B-Tree is stored  in
     private var file: FileHandle
     
     // TODO: Make these init parameters
+    /// Amount to read from disk at a time
     private let chunkSize = 4096
+    
+    /// Delimiter records are split by on disk
     private let recordDelimiter = "\n"
     private let recordDelimiterAsData: Data
+    
+    /// Delimiter ids are split by on disk
     private let idDelimiter = ";"
     private let idDelimiterAsData: Data
+    
+    /// The encoding to use on disk
     private let encoding = String.Encoding.utf8
     
+    // MARK: Construction & Deconstruction
+    
+    /// Setups up this storage engine. Creates a new DB if one is not current at the given location.
+    ///
+    /// - parameter path: Location on disk to store a B-Tree.
+    /// - throws: `BTreeError.unableToCreateDatabase` if unable to write to disk
     public init(path: URL) throws {
         self.path = path
         
@@ -45,21 +63,32 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
+    /// Close the database file on deinit
     deinit {
         self.close()
         
     }
     
+    // MARK: Operations
+    
+    /// If the storage currently used is empty
+    ///
+    /// - returns: `Bool`
     public func isEmpty() -> Bool {
         return self.file.seekToEndOfFile() == 0
         
     }
     
+    /// Wrap up operations.
     public func close() {
         self.file.closeFile()
         
     }
     
+    /// Save a new root to disk
+    ///
+    /// - parameter node: Node to store as new root
+    /// - throws: If unable to load the given node, or unable to write to disk
     public func saveRoot(_ node: BTreeNode<Key, Value>) throws {
         guard let populatedId = node.id?.uuidString.data(using: .utf8) else {
             throw BTreeError.nodeIsNotLoaded
@@ -74,6 +103,10 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
+    /// Read the current root from disk
+    ///
+    /// - returns: The root node
+    /// - throws: If database is corrupted, if root record is corrupted
     public func readRootNode() throws -> BTreeNode<Key, Value> {
         self.file.seek(toFileOffset: 0)
         
@@ -101,6 +134,11 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
+    /// Finds a node on disk
+    ///
+    /// - parameter id: The id of the node to find on disk
+    /// - returns: The node, if it found on disk. Otherwise, nil
+    /// - throws: If record is corrupted
     public func findNode(withId id: String) throws -> BTreeNode<Key, Value>? {
         guard let recordRange = self.findRecord(id) else {
             return nil
@@ -123,6 +161,10 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
+    /// Inserts or updates the given node on disk
+    ///
+    /// - parameter node: The node to insert or update
+    /// - throws: If unable to load the given node, or unable to write to disk
     public func upsert(_ node: BTreeNode<Key, Value>) throws {
         guard let populatedId = node.id else {
             throw BTreeError.nodeIsNotLoaded
@@ -140,14 +182,14 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
             let newFile = try FileHandle(forUpdating: newFilePath)
 
             do {
-                try self.transfer(from: self.file, to: newFile, in: 0..<recordLocation.lowerBound)
+                self.transfer(from: self.file, to: newFile, in: 0..<recordLocation.lowerBound)
                 newFile.seek(toFileOffset: newFile.offsetInFile)
                 newFile.write(try BTreeHelper.encoder.encode(node))
                 newFile.write(self.recordDelimiterAsData)
                 
                 let endOfFile = self.file.seekToEndOfFile()
                 if endOfFile > recordLocation.upperBound {
-                    try self.transfer(from: self.file, to: newFile, in: recordLocation.upperBound..<Int(endOfFile))
+                    self.transfer(from: self.file, to: newFile, in: recordLocation.upperBound..<Int(endOfFile))
                     
                 }
                 
@@ -170,13 +212,18 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
             }
 
         } else {
-            try self.appendRecord(node)
+            try self.append(node)
             
         }
         
     }
     
-    func transfer(from file: FileHandle, to destinationFile: FileHandle, in range: Range<Int>) throws {
+    /// Transfers the given range from one file to another
+    ///
+    /// - parameter from: The file to read from
+    /// - parameter to: The file the write to
+    /// - parameter in: The range of `from` to transfer
+    func transfer(from file: FileHandle, to destinationFile: FileHandle, in range: Range<Int>) {
         file.seek(toFileOffset: UInt64(range.lowerBound))
         var buffer = Data(capacity: self.chunkSize)
         
@@ -193,7 +240,11 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
-    func appendRecord(_ node: BTreeNode<Key, Value>) throws {
+    /// Append a node to the current database
+    ///
+    /// - parameter node: Node to append to the current database
+    /// - throws: If unable to load the given node
+    func append(_ node: BTreeNode<Key, Value>) throws {
         guard let populatedId = node.id?.uuidString.data(using: .utf8) else {
             throw BTreeError.nodeIsNotLoaded
             
@@ -211,6 +262,10 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
+    /// Find the range of the given record within the database
+    ///
+    /// - parameter id: The id of the record we want to find
+    /// - returns: Range of the given record within the database, if found. Otherwise, nil.
     func findRecord(_ id: String) -> Range<Int>? {
         self.file.seek(toFileOffset: 41) // root + root node's id + \n
         var buffer = Data(capacity: self.chunkSize)

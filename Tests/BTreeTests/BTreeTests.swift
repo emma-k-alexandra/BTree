@@ -304,7 +304,7 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
         
-        try! storage.transfer(from: file1, to: file2, in: 0..<5)
+        storage.transfer(from: file1, to: file2, in: 0..<5)
         
         let file2Contents = try! String(contentsOf: file2Path)
         
@@ -331,7 +331,7 @@ final class BTreeTests: XCTestCase {
         nodeToAppend.id = UUID()
         nodeToAppend.isLoaded = true
         
-        XCTAssertNoThrow(try storage.appendRecord(nodeToAppend)) 
+        XCTAssertNoThrow(try storage.append(nodeToAppend)) 
         
         try? FileManager.default.removeItem(at: storagePath)
         
