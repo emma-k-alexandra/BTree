@@ -369,10 +369,10 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
 /// Elements of the B-Tree
 public struct BTreeElement<Key: Comparable & Codable, Value: Codable>: Codable {
     /// Codable and Comparable key to use for lookups
-    let key: Key
+    public let key: Key
     
     /// Optional value to store along with key.
-    let value: Value
+    public let value: Value
     
 }
 
