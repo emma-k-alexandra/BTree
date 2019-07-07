@@ -1,6 +1,6 @@
 # BTree
 
-BTree is a Swift implementation of an on-disk (B-Tree)[https://en.wikipedia.org/wiki/B-tree], which can store (Codable)[https://developer.apple.com/documentation/foundation/archives_and_serialization/encoding_and_decoding_custom_types] records.
+BTree is a Swift implementation of an on-disk [B-Tree](https://en.wikipedia.org/wiki/B-tree), which can store [Codable](https://developer.apple.com/documentation/foundation/archives_and_serialization/encoding_and_decoding_custom_types) records.
 
 ## Contents
 - [Requirements](#requirements)
