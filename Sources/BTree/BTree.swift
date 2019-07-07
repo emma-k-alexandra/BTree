@@ -374,6 +374,12 @@ public struct BTreeElement<Key: Comparable & Codable, Value: Codable>: Codable {
     /// Optional value to store along with key.
     public let value: Value
     
+    public init(key: Key, value: Value) {
+        self.key = key
+        self.value = value
+        
+    }
+    
 }
 
 // MARK: Utilities and Errors
