@@ -215,6 +215,11 @@ This package still requires a lot of work in order to achieve performance charac
 ## Contact
 Feel free to email questions and comments to [emma@emma.sh](mailto:emma@emma.sh). 
 
+## Acknowledgements
+- (Introduction to Algorithms, 3rd Edition)[https://www.amazon.com/Introduction-Algorithms-3rd-MIT-Press/dp/0262033844], which laid out how to implement this B-Tree.
+- (MicolasLM's bplusthus)[https://github.com/NicolasLM/bplustree], for showing me this kind of implementation was possible.
+- (Swift Algorithm Club's B-Tree implementation)[https://github.com/raywenderlich/swift-algorithm-club/blob/master/B-Tree/BTree.playground/Sources/BTree.swift] for some ideas in how to translate's Intro to Algorithm's psuedocode into Swift.
+
 ## License
 
 BTree is released under the MIT license. [See LICENSE](https://github.com/emma-foster/BTree/blob/master/LICENSE) for details.
