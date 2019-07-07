@@ -217,5 +217,5 @@ Feel free to email questions and comments to [emma@emma.sh](mailto:emma@emma.sh)
 
 ## License
 
-WMATA.swift is released under the MIT license. [See LICENSE](https://github.com/emma-foster/BTree/blob/master/LICENSE) for details.
+BTree is released under the MIT license. [See LICENSE](https://github.com/emma-foster/BTree/blob/master/LICENSE) for details.
 
