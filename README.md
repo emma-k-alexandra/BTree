@@ -2,6 +2,21 @@
 
 BTree is a Swift implementation of an on-disk B-Tree, which can store Codable records.
 
+## Contents
+- [Requirements](#requirements)
+- [Installation](#installation)
+- [Disclaimer & Warnings](#disclaimer-and-warnings)
+- [Design](#design)
+- [Usage](#usage)
+- [Getting Started](#getting-started)
+- [On `minimumDegree`](#on-minimumdegree)
+- [Using `BTree`](#using-btree)
+- [Other Classes](#other-classes)
+- [Dependencies](#dependencies)
+- [Contributing](#contributing)
+- [Contact](#contact)
+- [License](#license)
+
 ## Requirements
 - Swift 5.1+
 
@@ -27,6 +42,7 @@ This implementation of B-Tree uses this disk rather than storing the tree in-mem
 
 ## Usage 
 
+### Getting started
 ```swift
 import BTree
 
@@ -57,6 +73,8 @@ print(element)
 ### On `minimumDegree`
 `minimumDegree` is an argument for `BTree` which determines the number of elements that can be stored in each node. `minimumDegree` is exactly **minimum degree** (Introduction to Algorithms, 3rd Edition, Cormen et al, Section 18.1, page 489). `minimumDegree` states that the minimum number of elements of a non-root node is `minimumDegree - 1`, the maximum number of elements of any node is `2 * minimumDegree - 1`. Additionally, `minimumDegree` provides limits on children of a node. Minimum number of children in an internal node: `minimumDegree`, maximum number of children `2 * minimumDegree`. This implementation follows these definitions.
 
+---
+
 ### Using `BTree`
 `BTree` provides operations typical of a search tree.
 
@@ -74,6 +92,8 @@ print(element)
  let element = BTreeElement<TestKey, TestValue>(key: TestKey(id: 0), value: TestValue(example: "hello"))
  try! tree.insert(element)
  ```
+ 
+ --- 
  
  ### Other Classes
  These classes are only required to understand the implementation of this B-Tree.
@@ -113,6 +133,8 @@ Loads a node from the current storage engine
 ```swift
 try! node.load()
 ```
+
+---
 
 #### Using `Storage`
 The storage engine for the B-Tree. Interacts with the disk.
