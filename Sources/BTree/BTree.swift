@@ -75,19 +75,19 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
     
 }
 
-final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
+public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
     typealias Hatchimals = Hashable // my wife made me do this
     
-    var elements = [BTreeElement<Key, Value>]()
-    var children = [BTreeNode<Key, Value>]()
+    public var elements = [BTreeElement<Key, Value>]()
+    public var children = [BTreeNode<Key, Value>]()
     
-    var minimumDegree: Int
-    var isLeaf: Bool
+    public var minimumDegree: Int
+    public var isLeaf: Bool
     
-    var isFull: Bool { self.elements.count == (2 * self.minimumDegree - 1) }
+    public var isFull: Bool { self.elements.count == (2 * self.minimumDegree - 1) }
     
-    var id: UUID? = nil
-    var isLoaded = false
+    public var id: UUID? = nil
+    public var isLoaded = false
     
     unowned var storage: Storage<Key, Value>? = nil
     
@@ -99,7 +99,7 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         case id
     }
     
-    init(from decoder: Decoder) throws {
+    public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         
         self.elements = try values.decode(Array<BTreeElement<Key, Value>>.self, forKey: .elements)
@@ -123,14 +123,14 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         
     }
     
-    init(minimumDegree: Int, isLeaf: Bool, storage: Storage<Key, Value>? = nil) {
+    public init(minimumDegree: Int, isLeaf: Bool, storage: Storage<Key, Value>? = nil) {
         self.minimumDegree = minimumDegree
         self.isLeaf = isLeaf
         self.storage = storage
         
     }
     
-    func find(_ key: Key) throws -> Value? {
+    public func find(_ key: Key) throws -> Value? {
         var i = 0
         
         while i < self.elements.count, key > self.elements[i].key {
@@ -159,7 +159,7 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         
     }
     
-    func insertNonFull(_ newElement: BTreeElement<Key, Value>) throws {
+    public func insertNonFull(_ newElement: BTreeElement<Key, Value>) throws {
         if !self.isLoaded {
             do {
                 try self.load()
@@ -208,7 +208,7 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         
     }
     
-    func split(at childIndex: Int) throws {
+    public func split(at childIndex: Int) throws {
         let childToSplit = self.children[childIndex]
         
         let newChild = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: childToSplit.isLeaf, storage: self.storage!)
@@ -233,7 +233,7 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         
     }
     
-    func encode(to encoder: Encoder) throws {
+    public func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(self.elements, forKey: .elements)
@@ -244,7 +244,7 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         
     }
     
-    func save() throws {
+    public func save() throws {
         guard self.isLoaded else {
             throw BTreeError.nodeIsNotLoaded
             
@@ -254,7 +254,7 @@ final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         
     }
     
-    func load() throws {
+    public func load() throws {
         guard let storage = self.storage, let id = self.id else {
             throw BTreeError.unableToLoadNode
             

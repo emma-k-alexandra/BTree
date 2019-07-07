@@ -12,6 +12,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     public var path: URL
     private var file: FileHandle
     
+    // TODO: Make these init parameters
     private let chunkSize = 4096
     private let recordDelimiter = "\n"
     private let recordDelimiterAsData: Data
@@ -30,17 +31,10 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
             // Create new DB if no DB exists at given path
             do {
                 try "".write(to: path, atomically: true, encoding: .utf8)
-                
-            } catch {
-                throw BTreeError.unableToCreateDatabase
-                
-            }
-            
-            do {
                 self.file = try FileHandle(forUpdating: path)
                 
             } catch {
-                throw BTreeError.unableToReadDatabase
+                throw BTreeError.unableToCreateDatabase
                 
             }
             
@@ -182,7 +176,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
-    private func transfer(from file: FileHandle, to destinationFile: FileHandle, in range: Range<Int>) throws {
+    func transfer(from file: FileHandle, to destinationFile: FileHandle, in range: Range<Int>) throws {
         file.seek(toFileOffset: UInt64(range.lowerBound))
         var buffer = Data(capacity: self.chunkSize)
         
@@ -199,7 +193,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
-    private func appendRecord(_ node: BTreeNode<Key, Value>) throws {
+    func appendRecord(_ node: BTreeNode<Key, Value>) throws {
         guard let populatedId = node.id?.uuidString.data(using: .utf8) else {
             throw BTreeError.nodeIsNotLoaded
             
@@ -217,7 +211,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         
     }
     
-    private func findRecord(_ id: String) -> Range<Int>? {
+    func findRecord(_ id: String) -> Range<Int>? {
         self.file.seek(toFileOffset: 41) // root + root node's id + \n
         var buffer = Data(capacity: self.chunkSize)
         var bufferOffset = 41 // root + root node's id + \n
