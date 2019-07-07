@@ -15,6 +15,7 @@ BTree is a Swift implementation of an on-disk [B-Tree](https://en.wikipedia.org/
 - [Dependencies](#dependencies)
 - [Contributing](#contributing)
 - [Contact](#contact)
+- [Acknowledgements](#acknowledgements)
 - [License](#license)
 
 ## Requirements
