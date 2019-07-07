@@ -5,7 +5,7 @@ BTree is a Swift implementation of an on-disk B-Tree, which can store Codable re
 ## Contents
 - [Requirements](#requirements)
 - [Installation](#installation)
-- [Disclaimer & Warnings](#disclaimer-and-warnings)
+- [Disclaimer & Warnings](#disclaimer--warnings)
 - [Design](#design)
 - [Usage](#usage)
 - [Getting Started](#getting-started)
@@ -62,7 +62,7 @@ struct TestValue: Codable {
 }
 
 let tree = BTree<TestKey, TestValue>(storagePath: someFilePath)
-let element = BTreeElement<TestKey, TestValue>(key: TestKey(id: 0)), value: TestValue(example: "hello")
+let element = BTreeElement<TestKey, TestValue>(key: TestKey(id: 0), value: TestValue(example: "hello"))
 try! tree.insert(element)
 
 let element = try! tree.find(element.key)
