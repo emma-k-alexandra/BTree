@@ -33,9 +33,8 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
         self.storage = try Storage(path: storagePath)
         
         if self.storage.isEmpty() {
-            self.root = BTreeNode<Key, Value>(minimumDegree: minimumDegree, isLeaf: true, storage: self.storage)
-            self.root.id = UUID()
-            self.root.isLoaded = true
+            
+            self.root = BTreeNode<Key, Value>(minimumDegree: minimumDegree, isLeaf: true, id: UUID(), isLoaded: true, storage: self.storage)
             try self.storage.saveRoot(self.root)
             
         } else {
@@ -72,9 +71,8 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
         let root = self.root
         
         if root.isFull {
-            let newRoot = BTreeNode<Key, Value>(minimumDegree: root.minimumDegree, isLeaf: false, storage: self.storage)
-            newRoot.id = UUID()
-            newRoot.isLoaded = true
+            
+            let newRoot = BTreeNode<Key, Value>(minimumDegree: root.minimumDegree, isLeaf: false, id: UUID(), isLoaded: true, storage: self.storage)
             
             self.root = newRoot
             
@@ -177,10 +175,14 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     ///
     /// - parameter minimumDegree: The minimum degree of this node. See README for details.
     /// - parameter isLeaf: If this node is a leaf
+    /// - parameter id: Storage id of this node
+    /// - parameter isLoaded: If this node is loaded from storage.
     /// - parameter storage: The storage engine used by this node.
-    public init(minimumDegree: Int, isLeaf: Bool, storage: Storage<Key, Value>? = nil) {
+    public init(minimumDegree: Int, isLeaf: Bool, id: UUID? = nil, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
         self.minimumDegree = minimumDegree
         self.isLeaf = isLeaf
+        self.id = id
+        self.isLoaded = isLoaded
         self.storage = storage
         
     }
