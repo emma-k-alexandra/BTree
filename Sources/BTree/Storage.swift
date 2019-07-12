@@ -119,7 +119,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     public func readRootNode() throws -> BTreeNode<Key, Value> {
         self.file.seek(toFileOffset: 0)
         
-        let buffer = self.file.readData(ofLength: 32)
+        let buffer = self.file.readData(ofLength: 17)
         let offsetData = buffer.subdata(in: 0..<buffer.firstIndex(of: "\n".data(using: .utf8)!.bytes[0])!)
         let maybeOffset = Int(String(data: offsetData, encoding: .utf8)!)
         
@@ -143,7 +143,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     
     /// Finds a node on disk
     ///
-    /// - parameter id: The id of the node to find on disk
+    /// - parameter offset: The offset of the node w want to retrieve on disk
     /// - returns: The node, if it found on disk. Otherwise, nil
     /// - throws: If record is corrupted
     public func findNode(withOffset offset: Int) throws -> BTreeNode<Key, Value> {

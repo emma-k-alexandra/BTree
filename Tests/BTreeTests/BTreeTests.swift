@@ -243,26 +243,6 @@ final class BTreeTests: XCTestCase {
         
     }
     
-    func testStorageUpsertAppend() {
-        var tempDirectory = FileManager.default.temporaryDirectory
-        tempDirectory.appendPathComponent("testStorageUpsertAppend.db")
-        
-        let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
-        
-        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.isLoaded = true
-        
-        XCTAssertNoThrow(try storage.saveRoot(rootNode))
-        
-        let node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        node.isLoaded = true
-        
-        XCTAssertNoThrow(try storage.append(node))
-        
-        try? FileManager.default.removeItem(at: tempDirectory)
-        
-    }
-    
     func testStorageAppendRecord() {
         var storagePath = FileManager.default.temporaryDirectory
         storagePath.appendPathComponent("testStorageAppendRecord.db")

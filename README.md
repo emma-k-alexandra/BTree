@@ -31,7 +31,9 @@ dependencies: [
 ```
 
 ## Disclaimer & Warnings
-This is not a production-ready package. The current implementation of this B-Tree does not replicate the performance characteristics of a B-Tree as expected.
+This is not a production-ready package. 
+
+The current implementation of this B-Tree does not replicate the performance characteristics of a B-Tree as expected. Currently, BTree performs searches and inserts at the expected speed of a B-Tree. However, BTree uses far more space than expected. Additionally, BTree does not currently support deletion of records.
 
 ## Design
 This B-Tree implementation is designed to use exclusively Swift, and relies heavily on [`Codable`](https://developer.apple.com/documentation/foundation/archives_and_serialization/encoding_and_decoding_custom_types). I believe that `Codable` provides a friendly interface for storing and retrieving information from disk & will continue relying on `Codable` in the future.
@@ -176,21 +178,7 @@ let root = try! storage.readRootNode()
 Finds a node on disk.
 
 ```swift
-let node = try! storage.findNode(withId: UUID().uuidString)
-```
-
-##### `upsert`
-Inserts or updates the given node on disk.
-
-```swift
-try! storage.upsert(node)
-```
-
-##### `transfer`
-Tranfers the given range from one file to another. Used when updating records.
-
-```swift
-storage.transfer(from: file1, to: file2, in: 0..<5)
+let node = try! storage.findNode(withOffset: 18)
 ```
 
 ##### `append`
@@ -198,13 +186,6 @@ Appends a node to storage on disk.
 
 ```swift
 try! storage.append(node)
-```
-
-##### `findRecord`
-Finds the range of a record on disk.
-
-```swift
-storage.findRecord(UUID().uuidString)
 ```
 
 ## Dependencies

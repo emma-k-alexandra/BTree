@@ -1,7 +1,7 @@
 //
 //  BTree.swift
 //
-//  
+//
 //  Created by Emma Foster on 7/4/19.
 import Foundation
 
@@ -73,7 +73,6 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
         let root = self.root
         
         if root.isFull {
-            
             let newRoot = BTreeNode<Key, Value>(minimumDegree: root.minimumDegree, isLeaf: false, isLoaded: true, storage: self.storage)
             self.root = newRoot
             
@@ -303,8 +302,6 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         
         try newChild.save()
         try childToSplit.save()
-        
-        // try self.save()
         
     }
     
