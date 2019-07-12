@@ -57,10 +57,10 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
         let node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, storage: storage)
-        node.id = UUID()
         node.isLoaded = true
         
-        try! storage.saveRoot(node)
+        let offset = try! storage.saveRoot(node)
+        node.offset = offset
         
         try! node.load()
         
@@ -198,7 +198,6 @@ final class BTreeTests: XCTestCase {
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
         let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
         rootNode.isLoaded = true
         
         XCTAssertNoThrow(try storage.saveRoot(rootNode))
@@ -214,7 +213,6 @@ final class BTreeTests: XCTestCase {
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
         let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
         rootNode.isLoaded = true
         
         XCTAssertNoThrow(try storage.saveRoot(rootNode))
@@ -232,14 +230,14 @@ final class BTreeTests: XCTestCase {
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
         let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
         rootNode.isLoaded = true
         
-        XCTAssertNoThrow(try storage.saveRoot(rootNode))
+        let offset = try! storage.saveRoot(rootNode)
+        rootNode.offset = offset
         
-        let root = try! storage.findNode(withId: rootNode.id!.uuidString)!
+        let root = try! storage.findNode(withOffset: offset)
         
-        XCTAssertEqual(root.id, rootNode.id)
+        XCTAssertEqual(root.offset, rootNode.offset)
         
         try? FileManager.default.removeItem(at: tempDirectory)
         
@@ -252,66 +250,16 @@ final class BTreeTests: XCTestCase {
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
         let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
         rootNode.isLoaded = true
         
         XCTAssertNoThrow(try storage.saveRoot(rootNode))
         
         let node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        node.id = UUID()
         node.isLoaded = true
         
-        XCTAssertNoThrow(try storage.upsert(node))
+        XCTAssertNoThrow(try storage.append(node))
         
         try? FileManager.default.removeItem(at: tempDirectory)
-        
-    }
-    
-    func testStorageUpsert() {
-        var tempDirectory = FileManager.default.temporaryDirectory
-        tempDirectory.appendPathComponent("testStorageUpsert.db")
-        
-        let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
-        
-        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
-        rootNode.isLoaded = true
-        
-        XCTAssertNoThrow(try storage.saveRoot(rootNode))
-        XCTAssertNoThrow(try storage.upsert(rootNode))
-        
-        try? FileManager.default.removeItem(at: tempDirectory)
-        
-    }
-    
-    func testStorageTransfer() {
-        var file1Path = FileManager.default.temporaryDirectory
-        file1Path.appendPathComponent("file1.txt")
-        
-        var file2Path = FileManager.default.temporaryDirectory
-        file2Path.appendPathComponent("file2.txt")
-        
-        try! "".write(to: file1Path, atomically: true, encoding: .utf8)
-        try! "".write(to: file2Path, atomically: true, encoding: .utf8)
-        
-        let file1 = try! FileHandle(forUpdating: file1Path)
-        let file2 = try! FileHandle(forUpdating: file2Path)
-        
-        file1.write("hello world".data(using: .utf8)!)
-        
-        var storagePath = FileManager.default.temporaryDirectory
-        storagePath.appendPathComponent("transfer.db")
-        
-        let storage = try! Storage<TestKey, TestValue>(path: storagePath)
-        
-        storage.transfer(from: file1, to: file2, in: 0..<5)
-        
-        let file2Contents = try! String(contentsOf: file2Path)
-        
-        XCTAssertEqual(file2Contents, "hello")
-        
-        try? FileManager.default.removeItem(at: file1Path)
-        try? FileManager.default.removeItem(at: file2Path)
         
     }
     
@@ -322,13 +270,11 @@ final class BTreeTests: XCTestCase {
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
         
         let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
         rootNode.isLoaded = true
         
-        try! storage.saveRoot(rootNode)
+        let _ = try! storage.saveRoot(rootNode)
         
         let nodeToAppend = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        nodeToAppend.id = UUID()
         nodeToAppend.isLoaded = true
         
         XCTAssertNoThrow(try storage.append(nodeToAppend)) 
@@ -344,12 +290,11 @@ final class BTreeTests: XCTestCase {
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
         
         let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true)
-        rootNode.id = UUID()
         rootNode.isLoaded = true
         
-        try! storage.saveRoot(rootNode)
+        let offset = try! storage.saveRoot(rootNode)
         
-        XCTAssertEqual(storage.findRecord(rootNode.id!.uuidString), 78..<184)
+        XCTAssertEqual(try storage.findNode(withOffset: offset).offset, 17)
         
         try? FileManager.default.removeItem(at: storagePath)
         

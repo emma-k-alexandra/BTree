@@ -1,7 +1,7 @@
 //
 //  BTree.swift
 //
-//
+//  
 //  Created by Emma Foster on 7/4/19.
 import Foundation
 
@@ -34,8 +34,10 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
         
         if self.storage.isEmpty() {
             
-            self.root = BTreeNode<Key, Value>(minimumDegree: minimumDegree, isLeaf: true, id: UUID(), isLoaded: true, storage: self.storage)
-            try self.storage.saveRoot(self.root)
+            self.root = BTreeNode<Key, Value>(minimumDegree: minimumDegree, isLeaf: true, isLoaded: true, storage: self.storage)
+            let offset = try self.storage.saveRoot(self.root)
+            self.root.offset = offset
+            self.root.parent = nil
             
         } else {
             self.root = try self.storage.readRootNode()
@@ -72,13 +74,15 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
         
         if root.isFull {
             
-            let newRoot = BTreeNode<Key, Value>(minimumDegree: root.minimumDegree, isLeaf: false, id: UUID(), isLoaded: true, storage: self.storage)
-            
+            let newRoot = BTreeNode<Key, Value>(minimumDegree: root.minimumDegree, isLeaf: false, isLoaded: true, storage: self.storage)
             self.root = newRoot
             
             newRoot.children.append(root)
+            root.parent = newRoot
             
-            try self.storage.saveRoot(newRoot)
+            let offset = try self.storage.saveRoot(newRoot)
+            newRoot.offset = offset
+            newRoot.parent = nil
             
             do {
                 try newRoot.split(at: 0)
@@ -126,11 +130,13 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     /// If this node is full of elements.
     public var isFull: Bool { self.elements.count == (2 * self.minimumDegree - 1) }
     
-    /// The id of this node. Used in storage.
-    public var id: UUID? = nil
-    
     /// If this node's elements and children are loaded from disk.
     public var isLoaded = false
+    
+    /// Offset of this node in storage engine
+    public var offset: Int? = nil
+    
+    public weak var parent: BTreeNode<Key, Value>?
     
     /// The storage engine used by this node.
     unowned var storage: Storage<Key, Value>? = nil
@@ -155,17 +161,15 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         self.minimumDegree = try values.decode(Int.self, forKey: .minimumDegree)
         self.isLeaf = try values.decode(Bool.self, forKey: .isLeaf)
         
-        let decodedChildren = try values.decode([String].self, forKey: .children)
+        let decodedChildren = try values.decode([Int].self, forKey: .children)
         
-        self.children = decodedChildren.map({ (childId) -> BTreeNode<Key, Value> in
+        self.children = decodedChildren.map({ (childOffset) -> BTreeNode<Key, Value> in
             let child = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.isLeaf)
-            child.id = UUID(uuidString: childId)
+            child.offset = childOffset
             
             return child
             
         })
-        
-        self.id = UUID(uuidString: try values.decode(String.self, forKey: .id))
         
         self.isLoaded = true
         
@@ -175,13 +179,11 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     ///
     /// - parameter minimumDegree: The minimum degree of this node. See README for details.
     /// - parameter isLeaf: If this node is a leaf
-    /// - parameter id: Storage id of this node
     /// - parameter isLoaded: If this node is loaded from storage.
     /// - parameter storage: The storage engine used by this node.
-    public init(minimumDegree: Int, isLeaf: Bool, id: UUID? = nil, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
+    public init(minimumDegree: Int, isLeaf: Bool, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
         self.minimumDegree = minimumDegree
         self.isLeaf = isLeaf
-        self.id = id
         self.isLoaded = isLoaded
         self.storage = storage
         
@@ -282,11 +284,11 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     /// - throws: If unable to load any nodes used in this split, or if storage engine is unable to write to disk.
     public func split(at childIndex: Int) throws {
         let childToSplit = self.children[childIndex]
-        
+    
         let newChild = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: childToSplit.isLeaf, storage: self.storage!)
+        newChild.parent = self
         
         newChild.elements = Array(childToSplit.elements[(self.minimumDegree - 1)..<(2 * self.minimumDegree - 2)])
-        newChild.id = UUID()
         newChild.isLoaded = true
 
         
@@ -299,9 +301,10 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         
         self.elements.insert(childToSplit.elements[self.minimumDegree], at: childIndex)
         
-        try childToSplit.save()
         try newChild.save()
-        try self.save()
+        try childToSplit.save()
+        
+        // try self.save()
         
     }
     
@@ -315,10 +318,9 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(self.elements, forKey: .elements)
-        try container.encode(self.children.map { $0.id! }, forKey: .children)
+        try container.encode(self.children.map { $0.offset! }, forKey: .children)
         try container.encode(self.minimumDegree, forKey: .minimumDegree)
         try container.encode(self.isLeaf, forKey: .isLeaf)
-        try container.encode(self.id, forKey: .id)
         
     }
     
@@ -326,12 +328,22 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     ///
     /// - throws: If unable to load this node, or if storage engine is unable to write to disk
     public func save() throws {
-        guard self.isLoaded else {
+        guard let storage = self.storage, self.isLoaded else {
             throw BTreeError.nodeIsNotLoaded
             
         }
-        
-        try self.storage?.upsert(self)
+
+        if let parent = self.parent {
+            let offset = try storage.append(self)
+            self.offset = offset
+            
+            try parent.save()
+            
+        } else {
+            let offset = try storage.saveRoot(self)
+            self.offset = offset
+            
+        }
         
     }
     
@@ -339,23 +351,18 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     ///
     /// - throws: If unable to load node
     public func load() throws {
-        guard let storage = self.storage, let id = self.id else {
+        guard let storage = self.storage, let offset = self.offset else {
             throw BTreeError.unableToLoadNode
             
         }
         
         do {
-            let possibleNode = try storage.findNode(withId: id.uuidString)
-            
-            if let node = possibleNode {
-                self.elements = node.elements
-                self.children = node.children
-                self.isLeaf = node.isLeaf
-                self.minimumDegree = node.minimumDegree
-                
-                self.isLoaded = true
-                
-            }
+            let node = try storage.findNode(withOffset: offset)
+            self.elements = node.elements
+            self.children = node.children
+            self.isLeaf = node.isLeaf
+            self.minimumDegree = node.minimumDegree
+            self.isLoaded = true
             
         } catch {
             throw BTreeError.unableToLoadNode
@@ -396,7 +403,6 @@ struct BTreeHelper {
     
 }
 
-
 /// All possible errors that can occur between the B-Tree and the storage engine
 enum BTreeError: Error {
     case unableToInsert
@@ -409,14 +415,4 @@ enum BTreeError: Error {
     case invalidDatabase
     case invalidRootRecord
     case invalidRecord
-}
-
-
-/// Extension to UUID to convert to data
-extension UUID {
-    var data: Data {
-        return withUnsafeBytes(of: self.uuid, { Data($0) })
-        
-    }
-    
 }
