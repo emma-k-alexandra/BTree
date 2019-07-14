@@ -388,17 +388,7 @@ public struct BTreeElement<Key: Comparable & Codable, Value: Codable>: Codable {
     
 }
 
-// MARK: Utilities and Errors
-
-/// Helper to avoid passing encoders and decoders down to all nodes
-struct BTreeHelper {
-    /// Encoder to convert nodes to JSON
-    static let encoder = JSONEncoder()
-    
-    /// Decoder to convert JSON to node
-    static let decoder = JSONDecoder()
-    
-}
+// MARK: Errors
 
 /// All possible errors that can occur between the B-Tree and the storage engine
 enum BTreeError: Error {
