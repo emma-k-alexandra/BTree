@@ -274,7 +274,7 @@ final class BTreeTests: XCTestCase {
         
         let offset = try! storage.saveRoot(rootNode)
         
-        XCTAssertEqual(try storage.findNode(withOffset: offset).offset, 17)
+        XCTAssertEqual(try storage.findNode(withOffset: offset).offset, 19)
         
         try? FileManager.default.removeItem(at: storagePath)
         
