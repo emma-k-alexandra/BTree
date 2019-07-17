@@ -321,7 +321,7 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(self.elements, forKey: .elements)
-        try container.encode(self.children.map { $0.offset! }, forKey: .children)
+        try container.encode(self.children.map { $0.offset!.toPaddedString() }, forKey: .children)
         try container.encode(self.minimumDegree, forKey: .minimumDegree)
         try container.encode(self.isLeaf, forKey: .isLeaf)
         
