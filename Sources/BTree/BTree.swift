@@ -133,7 +133,7 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     public var isLoaded = false
     
     /// Offset of this node in storage engine
-    public var offset: Int? = nil
+    public var offset: UInt64? = nil
     
     public weak var parent: BTreeNode<Key, Value>?
     
@@ -160,9 +160,15 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         self.minimumDegree = try values.decode(Int.self, forKey: .minimumDegree)
         self.isLeaf = try values.decode(Bool.self, forKey: .isLeaf)
         
-        let decodedChildren = try values.decode([Int].self, forKey: .children)
         
-        self.children = decodedChildren.map({ (childOffset) -> BTreeNode<Key, Value> in
+        let decodedChildren = try values.decode([String].self, forKey: .children)
+        
+        self.children = try decodedChildren.map({ (childOffsetString) -> BTreeNode<Key, Value> in
+            guard let childOffset = UInt64(childOffsetString) else {
+                throw BTreeError.invalidRecord
+                
+            }
+            
             let child = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.isLeaf)
             child.offset = childOffset
             
@@ -315,7 +321,7 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         var container = encoder.container(keyedBy: CodingKeys.self)
         
         try container.encode(self.elements, forKey: .elements)
-        try container.encode(self.children.map { $0.offset! }, forKey: .children)
+        try container.encode(self.children.map { $0.offset!.toPaddedString() }, forKey: .children)
         try container.encode(self.minimumDegree, forKey: .minimumDegree)
         try container.encode(self.isLeaf, forKey: .isLeaf)
         
@@ -396,10 +402,11 @@ enum BTreeError: Error {
     case nodeIsNotLoaded
     case unableToLoadNode
     case unableToReadDatabase
-    case unableToCreateDatabase
+    case unableToCreateStorage
     case unableToModifyTemporaryDatabase
     case unableToRenameTemporaryDatabase
-    case invalidDatabase
+    case invalidStorage
     case invalidRootRecord
     case invalidRecord
+    case invalidRecordSize
 }
