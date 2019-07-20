@@ -103,7 +103,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         }
 
         if self.isEmpty() {
-            let zeroes = 0.toPaddedString() + "\n"
+            let zeroes = 0.toPaddedString() + self.recordDelimiter
             self.file.write(zeroes.data(using: .utf8)!)
 
         }
