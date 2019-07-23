@@ -26,7 +26,7 @@ BTree is a Swift implementation of an on-disk [B-Tree](https://en.wikipedia.org/
 ### Swift Package Manager
 ```swift
 dependencies: [
-    .package(url: "https://github.com/emma-foster/BTree.git", from: "1.0.0")
+    .package(url: "https://github.com/emma-foster/BTree.git", from: "0.5.0")
 ]
 ```
 
