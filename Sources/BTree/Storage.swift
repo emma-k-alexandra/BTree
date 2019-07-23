@@ -97,11 +97,6 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     /// - returns: The offset of the root node in storage
     /// - throws: If unable to load the given node, or unable to write to disk
     public func saveRoot(_ node: BTreeNode<Key, Value>) throws -> UInt64 {
-        if !node.isLoaded {
-            throw BTreeError.nodeIsNotLoaded
-
-        }
-
         if self.isEmpty() {
             let zeroes = 0.toPaddedString() + self.recordDelimiter
             self.file.write(zeroes.data(using: .utf8)!)
@@ -139,7 +134,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         }
 
         do {
-            let rootNode = try self.findNode(withOffset: rootRecordOffset)
+            var rootNode = try self.findNode(withOffset: rootRecordOffset)
             rootNode.offset = rootRecordOffset
             return rootNode
 
@@ -174,7 +169,7 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         let nodeData = self.file.readData(ofLength: recordSize)
 
         do {
-            let node = try self.decoder.decode(BTreeNode<Key, Value>.self, from: nodeData)
+            var node = try self.decoder.decode(BTreeNode<Key, Value>.self, from: nodeData)
             node.storage = self
             node.offset = offset
 

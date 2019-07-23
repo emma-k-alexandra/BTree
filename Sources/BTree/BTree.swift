@@ -6,18 +6,18 @@
 import Foundation
 
 /// Main implementation of a B-Tree
-public class BTree<Key: Comparable & Codable, Value: Codable> {
+public struct BTree<Key: Comparable & Codable, Value: Codable> {
     
     // MARK: Properties
-    
-    /// the root node of the B-Tree
-    var root: BTreeNode<Key, Value>
     
     /// Convenience. Pass through for te minimum degree of the root node.
     public var minimumDegree: Int { self.root.minimumDegree }
     
     /// Location this B-Tree is stored on disk
     public var storagePath: URL
+    
+    /// the root node of the B-Tree
+    private var root: BTreeNode<Key, Value>
     
     /// Storage engine used by this B-Tree
     private var storage: Storage<Key, Value>
@@ -33,23 +33,15 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
         self.storage = try Storage(path: storagePath)
         
         if self.storage.isEmpty() {
+            self.root = BTreeNode(minimumDegree: minimumDegree, isLeaf: true, isRoot: true, isLoaded: true, storage: self.storage)
             
-            self.root = BTreeNode<Key, Value>(minimumDegree: minimumDegree, isLeaf: true, isLoaded: true, storage: self.storage)
-            let offset = try self.storage.saveRoot(self.root)
-            self.root.offset = offset
-            self.root.parent = nil
+            try self.root.save()
             
         } else {
             self.root = try self.storage.readRootNode()
             self.root.storage = self.storage
             
         }
-        
-    }
-    
-    /// Make sure to close our storage.
-    deinit {
-        self.storage.close()
         
     }
     
@@ -60,7 +52,7 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
     /// - parameter key: Key to find within the B-Tree.
     /// - returns: Value that matches this key.
     /// - throws: `BTreeError.unableToLoadNode` if unable to load any nodes used in this search.
-    public func find(_ key: Key) throws -> Value? {
+    public mutating func find(_ key: Key) throws -> Value? {
         return try self.root.find(key)
         
     }
@@ -69,46 +61,27 @@ public class BTree<Key: Comparable & Codable, Value: Codable> {
     ///
     /// - parameter newElement: `BTreeElement`  to insert into the B-Tree
     /// - Throws: `BTreeError.unableToInsert` if not able to insert given element
-    public func insert(_ newElement: BTreeElement<Key, Value>) throws {
-        let root = self.root
-        
-        if root.isFull {
-            let newRoot = BTreeNode<Key, Value>(minimumDegree: root.minimumDegree, isLeaf: false, isLoaded: true, storage: self.storage)
-            self.root = newRoot
+    public mutating func insert(_ newElement: BTreeElement<Key, Value>) throws {
+        if self.root.isFull {
+            var root = self.root
             
-            newRoot.children.append(root)
-            root.parent = newRoot
+            self.root = BTreeNode(minimumDegree: root.minimumDegree, isLeaf: false, isRoot: true, isLoaded: true, storage: self.storage)
+            root.isRoot = false
             
-            let offset = try self.storage.saveRoot(newRoot)
-            newRoot.offset = offset
-            newRoot.parent = nil
+            self.root.children.append(root)
             
-            do {
-                try newRoot.split(at: 0)
-                try newRoot.insertNonFull(newElement)
-                
-            } catch {
-                throw BTreeError.unableToInsert
-                
-            }
-            
-        } else {
-            do {
-                try root.insertNonFull(newElement)
-                
-            } catch {
-                throw BTreeError.unableToInsert
-                
-            }
+            try self.root.split(at: 0)
             
         }
+        
+        try self.root.insertNonFull(newElement)
         
     }
     
 }
 
 /// A node in the B-Tree
-public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
+public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
     
     // MARK: Properties
     
@@ -132,10 +105,11 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     /// If this node's elements and children are loaded from disk.
     public var isLoaded = false
     
+    /// If this node is the root of the tree
+    public var isRoot: Bool
+    
     /// Offset of this node in storage engine
     public var offset: UInt64? = nil
-    
-    public weak var parent: BTreeNode<Key, Value>?
     
     /// The storage engine used by this node.
     unowned var storage: Storage<Key, Value>? = nil
@@ -146,7 +120,7 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         case children
         case minimumDegree
         case isLeaf
-        case id
+        case isRoot
     }
     
     // MARK: Creation
@@ -155,21 +129,21 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     public init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         
-        self.elements = try values.decode(Array<BTreeElement<Key, Value>>.self, forKey: .elements)
+        self.elements = try values.decode(Array<BTreeElement>.self, forKey: .elements)
         
         self.minimumDegree = try values.decode(Int.self, forKey: .minimumDegree)
         self.isLeaf = try values.decode(Bool.self, forKey: .isLeaf)
-        
+        self.isRoot = try values.decode(Bool.self, forKey: .isRoot)
         
         let decodedChildren = try values.decode([String].self, forKey: .children)
         
-        self.children = try decodedChildren.map({ (childOffsetString) -> BTreeNode<Key, Value> in
+        self.children = try decodedChildren.map({ (childOffsetString) -> BTreeNode in
             guard let childOffset = UInt64(childOffsetString) else {
                 throw BTreeError.invalidRecord
                 
             }
             
-            let child = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.isLeaf)
+            var child = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.isLeaf, isRoot: false)
             child.offset = childOffset
             
             return child
@@ -186,25 +160,26 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     /// - parameter isLeaf: If this node is a leaf
     /// - parameter isLoaded: If this node is loaded from storage.
     /// - parameter storage: The storage engine used by this node.
-    public init(minimumDegree: Int, isLeaf: Bool, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
+    public init(minimumDegree: Int, isLeaf: Bool, isRoot: Bool, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
         self.minimumDegree = minimumDegree
         self.isLeaf = isLeaf
         self.isLoaded = isLoaded
+        self.isRoot = isRoot
         self.storage = storage
         
     }
     
-    // MARK: Operations
+    // MARK: Find
     
     /// Find a key in this node
     ///
     /// - parameter key: Key to find in this node
     /// - returns: Value matching the given key
     /// - throws: `BTreeError.unableToLoadNode` if unable to load any nodes from disk used for this find.
-    public func find(_ key: Key) throws -> Value? {
+    public mutating func find(_ key: Key) throws -> Value? {
         var i = 0
         
-        while i < self.elements.count, key > self.elements[i].key {
+        while i < self.elements.count, self.elements[i].key < key  {
             i += 1
             
         }
@@ -216,13 +191,8 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
             return nil
             
         } else {
-            do {
-                try self.children[i].load()
-                
-            } catch {
-                return nil
-                
-            }
+            self.children[i].storage = self.storage
+            try self.children[i].load()
             
             return try self.children[i].find(key)
             
@@ -230,54 +200,52 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         
     }
     
+    // MARK: Insert
+    
     /// Inserts an element in to this node, if the node is not full.
     ///
     /// - parameter newElement: Element to insert into this node
     /// - throws: `BTreeError.unableToLoadNode` if unable to load any nodes used in this insert
-    public func insertNonFull(_ newElement: BTreeElement<Key, Value>) throws {
-        if !self.isLoaded {
-            do {
-                try self.load()
-                
-            } catch {
-                throw BTreeError.unableToLoadNode
-                
-            }
-            
-        }
-        
-        var i = self.elements.count - 1
+    public mutating func insertNonFull(_ newElement: BTreeElement<Key, Value>) throws {
+        var i = 0
         
         if self.isLeaf {
-            while i > 0, newElement.key < self.elements[i].key {
-                i -= 1
+            while i < self.elements.count, self.elements[i].key < newElement.key {
+                i += 1
                 
             }
             
-            self.elements.insert(newElement, at: i + 1)
+            if i < self.elements.count, newElement.key == self.elements[i].key {
+                throw BTreeError.duplicateKey
+                
+            }
+            
+            self.elements.insert(newElement, at: i)
+            
             try self.save()
             
         } else {
-            while i > 0, newElement.key < self.elements[i].key {
-                i -= 1
+            while i < self.elements.count, self.elements[i].key < newElement.key {
+                i += 1
                 
             }
-            
-            i += 1
-            
+                        
             self.children[i].storage = self.storage
             
             try self.children[i].load()
+            
             if self.children[i].isFull {
                 try self.split(at: i)
-                if newElement.key > self.elements[i].key {
+                if self.elements[i].key < newElement.key  {
                     i += 1
-                    
+
                 }
                 
             }
             
             try self.children[i].insertNonFull(newElement)
+            
+            try self.save()
             
         }
         
@@ -287,27 +255,28 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     ///
     /// - parameter childIndex: The index of the child to split
     /// - throws: If unable to load any nodes used in this split, or if storage engine is unable to write to disk.
-    public func split(at childIndex: Int) throws {
-        let childToSplit = self.children[childIndex]
-    
-        let newChild = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: childToSplit.isLeaf, storage: self.storage!)
-        newChild.parent = self
+    public mutating func split(at childIndex: Int) throws {
+        var newChild = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.children[childIndex].isLeaf, isRoot: false, isLoaded: true, storage: self.storage!)
         
-        newChild.elements = Array(childToSplit.elements[(self.minimumDegree - 1)..<(2 * self.minimumDegree - 2)])
-        newChild.isLoaded = true
-
+        let elementsToTransferRange = self.minimumDegree...
+        newChild.elements = Array(self.children[childIndex].elements[elementsToTransferRange])
+        self.children[childIndex].elements.removeSubrange(elementsToTransferRange)
         
-        if !childToSplit.isLeaf {
-            newChild.children = Array(childToSplit.children[self.minimumDegree...(2 * self.minimumDegree - 1)])
+        if !self.children[childIndex].isLeaf {
+            let childrenToTransferRange = self.minimumDegree...
+            newChild.children = Array(self.children[childIndex].children[childrenToTransferRange])
+            self.children[childIndex].children.removeSubrange(childrenToTransferRange)
             
         }
         
-        self.children.insert(newChild, at: childIndex + 1)
+        self.elements.insert(self.children[childIndex].elements.removeLast(), at: childIndex)
         
-        self.elements.insert(childToSplit.elements[self.minimumDegree], at: childIndex)
-        
+        try self.children[childIndex].save()
         try newChild.save()
-        try childToSplit.save()
+        
+        self.children.insert(newChild, at: childIndex + 1)
+    
+        try self.save()
         
     }
     
@@ -324,27 +293,24 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         try container.encode(self.children.map { $0.offset!.toPaddedString() }, forKey: .children)
         try container.encode(self.minimumDegree, forKey: .minimumDegree)
         try container.encode(self.isLeaf, forKey: .isLeaf)
+        try container.encode(self.isRoot, forKey: .isRoot)
         
     }
     
     /// Save this node to disk using storage engine
     ///
     /// - throws: If unable to load this node, or if storage engine is unable to write to disk
-    public func save() throws {
+    public mutating func save() throws {
         guard let storage = self.storage, self.isLoaded else {
             throw BTreeError.nodeIsNotLoaded
             
         }
-
-        if let parent = self.parent {
-            let offset = try storage.append(self)
-            self.offset = offset
-            
-            try parent.save()
+        
+        if self.isRoot {
+            self.offset = try storage.saveRoot(self)
             
         } else {
-            let offset = try storage.saveRoot(self)
-            self.offset = offset
+            self.offset = try storage.append(self)
             
         }
         
@@ -353,7 +319,7 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
     /// Loads this node from disk using storage engine
     ///
     /// - throws: If unable to load node
-    public func load() throws {
+    public mutating func load() throws {
         guard let storage = self.storage, let offset = self.offset else {
             throw BTreeError.unableToLoadNode
             
@@ -361,6 +327,7 @@ public final class BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable
         
         do {
             let node = try storage.findNode(withOffset: offset)
+
             self.elements = node.elements
             self.children = node.children
             self.isLeaf = node.isLeaf
@@ -398,6 +365,7 @@ public struct BTreeElement<Key: Comparable & Codable, Value: Codable>: Codable {
 
 /// All possible errors that can occur between the B-Tree and the storage engine
 enum BTreeError: Error {
+    case duplicateKey
     case unableToInsert
     case nodeIsNotLoaded
     case unableToLoadNode
