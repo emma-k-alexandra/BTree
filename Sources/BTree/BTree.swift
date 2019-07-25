@@ -33,7 +33,7 @@ public struct BTree<Key: Comparable & Codable, Value: Codable> {
         self.storage = try Storage(path: storagePath)
         
         if self.storage.isEmpty() {
-            self.root = BTreeNode(minimumDegree: minimumDegree, isLeaf: true, isRoot: true, isLoaded: true, storage: self.storage)
+            self.root = BTreeNode(minimumDegree: minimumDegree, isRoot: true, isLoaded: true, storage: self.storage)
             
             try self.root.save()
             
@@ -65,7 +65,7 @@ public struct BTree<Key: Comparable & Codable, Value: Codable> {
         if self.root.isFull {
             var root = self.root
             
-            self.root = BTreeNode(minimumDegree: root.minimumDegree, isLeaf: false, isRoot: true, isLoaded: true, storage: self.storage)
+            self.root = BTreeNode(minimumDegree: root.minimumDegree, isRoot: true, isLoaded: true, storage: self.storage)
             root.isRoot = false
             
             self.root.children.append(root)
@@ -97,7 +97,7 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
     public var minimumDegree: Int
     
     /// If this node is a leaf
-    public var isLeaf: Bool
+    public var isLeaf: Bool { self.children.count == 0 }
     
     /// If this node is full of elements.
     public var isFull: Bool { self.elements.count == (2 * self.minimumDegree - 1) }
@@ -120,21 +120,21 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         case children
         case minimumDegree
         case isLeaf
-        case isRoot
     }
     
     // MARK: Creation
     
     /// Initializer used to load this node from disk.
     public init(from decoder: Decoder) throws {
+        self.isRoot = false
+        self.isLoaded = true
+        
         let values = try decoder.container(keyedBy: CodingKeys.self)
         
         self.elements = try values.decode(Array<BTreeElement>.self, forKey: .elements)
         
         self.minimumDegree = try values.decode(Int.self, forKey: .minimumDegree)
-        self.isLeaf = try values.decode(Bool.self, forKey: .isLeaf)
-        self.isRoot = try values.decode(Bool.self, forKey: .isRoot)
-        
+
         let decodedChildren = try values.decode([String].self, forKey: .children)
         
         self.children = try decodedChildren.map({ (childOffsetString) -> BTreeNode in
@@ -143,14 +143,12 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
                 
             }
             
-            var child = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.isLeaf, isRoot: false)
+            var child = BTreeNode(minimumDegree: self.minimumDegree, isRoot: false)
             child.offset = childOffset
             
             return child
             
         })
-        
-        self.isLoaded = true
         
     }
     
@@ -160,9 +158,8 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
     /// - parameter isLeaf: If this node is a leaf
     /// - parameter isLoaded: If this node is loaded from storage.
     /// - parameter storage: The storage engine used by this node.
-    public init(minimumDegree: Int, isLeaf: Bool, isRoot: Bool, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
+    public init(minimumDegree: Int, isRoot: Bool, isLoaded: Bool = false, storage: Storage<Key, Value>? = nil) {
         self.minimumDegree = minimumDegree
-        self.isLeaf = isLeaf
         self.isLoaded = isLoaded
         self.isRoot = isRoot
         self.storage = storage
@@ -256,7 +253,7 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
     /// - parameter childIndex: The index of the child to split
     /// - throws: If unable to load any nodes used in this split, or if storage engine is unable to write to disk.
     public mutating func split(at childIndex: Int) throws {
-        var newChild = BTreeNode(minimumDegree: self.minimumDegree, isLeaf: self.children[childIndex].isLeaf, isRoot: false, isLoaded: true, storage: self.storage!)
+        var newChild = BTreeNode(minimumDegree: self.minimumDegree, isRoot: false, isLoaded: true, storage: self.storage!)
         
         let elementsToTransferRange = self.minimumDegree...
         newChild.elements = Array(self.children[childIndex].elements[elementsToTransferRange])
@@ -292,8 +289,6 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
         try container.encode(self.elements, forKey: .elements)
         try container.encode(self.children.map { $0.offset!.toPaddedString() }, forKey: .children)
         try container.encode(self.minimumDegree, forKey: .minimumDegree)
-        try container.encode(self.isLeaf, forKey: .isLeaf)
-        try container.encode(self.isRoot, forKey: .isRoot)
         
     }
     
@@ -330,7 +325,6 @@ public struct BTreeNode<Key: Comparable & Codable, Value: Codable>: Codable {
 
             self.elements = node.elements
             self.children = node.children
-            self.isLeaf = node.isLeaf
             self.minimumDegree = node.minimumDegree
             self.isLoaded = true
             

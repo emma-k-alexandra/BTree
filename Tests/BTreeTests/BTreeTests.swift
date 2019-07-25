@@ -40,7 +40,7 @@ final class BTreeTests: XCTestCase {
         storagePath.appendPathComponent("testBTreeNodeInit.db")
         
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
-        let node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, storage: storage)
+        let node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, storage: storage)
         
         XCTAssertEqual(node.minimumDegree, 2)
         XCTAssertEqual(node.isLeaf, true)
@@ -55,7 +55,7 @@ final class BTreeTests: XCTestCase {
         storagePath.appendPathComponent("testBTreeNodeInit.db")
         
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
-        var node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, isLoaded: true, storage: storage)
+        var node = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, isLoaded: true, storage: storage)
         
         let offset = try! storage.saveRoot(node)
         node.offset = offset
@@ -172,7 +172,9 @@ final class BTreeTests: XCTestCase {
         
         XCTAssertEqual(try! tree.find(element10.key)?.value , element10.value.value)
         
-        try? FileManager.default.removeItem(at: tempDirectory)
+        print(tempDirectory)
+        
+        // try? FileManager.default.removeItem(at: tempDirectory)
         
     }
     
@@ -195,7 +197,7 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
-        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, isLoaded: true)
+        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, isLoaded: true)
         
         XCTAssertNoThrow(try storage.saveRoot(rootNode))
         
@@ -209,7 +211,7 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
-        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, isLoaded: true)
+        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, isLoaded: true)
         
         XCTAssertNoThrow(try storage.saveRoot(rootNode))
         
@@ -225,7 +227,7 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: tempDirectory)
         
-        var rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, isLoaded: true)
+        var rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, isLoaded: true)
         
         let offset = try! storage.saveRoot(rootNode)
         rootNode.offset = offset
@@ -244,11 +246,11 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
         
-        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, isLoaded: true)
+        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, isLoaded: true)
         
         let _ = try! storage.saveRoot(rootNode)
         
-        let nodeToAppend = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: false, isLoaded: true)
+        let nodeToAppend = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: false, isLoaded: true)
         
         XCTAssertNoThrow(try storage.append(nodeToAppend)) 
         
@@ -262,7 +264,7 @@ final class BTreeTests: XCTestCase {
         
         let storage = try! Storage<TestKey, TestValue>(path: storagePath)
         
-        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isLeaf: true, isRoot: true, isLoaded: true)
+        let rootNode = BTreeNode<TestKey, TestValue>(minimumDegree: 2, isRoot: true, isLoaded: true)
         
         let offset = try! storage.saveRoot(rootNode)
         
