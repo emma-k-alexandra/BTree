@@ -172,9 +172,7 @@ final class BTreeTests: XCTestCase {
         
         XCTAssertEqual(try! tree.find(element10.key)?.value , element10.value.value)
         
-        print(tempDirectory)
-        
-        // try? FileManager.default.removeItem(at: tempDirectory)
+        try? FileManager.default.removeItem(at: tempDirectory)
         
     }
     
