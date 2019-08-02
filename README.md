@@ -26,14 +26,12 @@ BTree is a Swift implementation of an on-disk [B-Tree](https://en.wikipedia.org/
 ### Swift Package Manager
 ```swift
 dependencies: [
-    .package(url: "https://github.com/emma-foster/BTree.git", from: "0.5.0")
+    .package(url: "https://github.com/emma-foster/BTree.git", from: "1.0.0")
 ]
 ```
 
 ## Disclaimer & Warnings
-This is not a production-ready package. 
-
-The current implementation of this B-Tree does not replicate the performance characteristics of a B-Tree as expected. Currently, BTree performs searches and inserts at the expected speed of a B-Tree. However, BTree uses far more space than expected. Additionally, BTree does not currently support deletion of records.
+BTree performs searches and inserts at the expected speed of a B-Tree. BTree uses far more space than expected on disk. BTree does not currently support deletion or updating of records.
 
 ## Design
 This B-Tree implementation is designed to use exclusively Swift, and relies heavily on [`Codable`](https://developer.apple.com/documentation/foundation/archives_and_serialization/encoding_and_decoding_custom_types). I believe that `Codable` provides a friendly interface for storing and retrieving information from disk & will continue relying on `Codable` in the future.
