@@ -177,26 +177,50 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     /// - returns: The node, if it found on disk. Otherwise, nil
     /// - throws: If record is corrupted
     public func findNode(withOffset offset: UInt64) throws -> BTreeNode<Key, Value> {
-        if !(isReadOnly || self.writeFileIsEmpty) {
-            try self.copy()
-        }
-
-        self.file.seek(toFileOffset: offset)
-        
-        let recordSizeData = self.file.readData(ofLength: lengthOfRecordSize)
-        
-        guard let recordSizeString = String(data: recordSizeData, encoding: .utf8) else {
-            throw BTreeError.invalidRecordSize
-        }
-        
-        guard let recordSize = Int(recordSizeString) else {
-            throw BTreeError.invalidRecordSize
-        }
-        
-        let nodeData = self.file.readData(ofLength: recordSize)
+        let nodeData: Data?
 
         do {
-            var node = try self.decoder.decode(BTreeNode<Key, Value>.self, from: nodeData)
+            self.file.seek(toFileOffset: offset)
+
+            let recordSizeData = self.file.readData(ofLength: lengthOfRecordSize)
+
+            guard let recordSizeString = String(data: recordSizeData, encoding: .utf8) else {
+                throw BTreeError.invalidRecordSize
+            }
+
+            guard let recordSize = Int(recordSizeString) else {
+                throw BTreeError.invalidRecordSize
+            }
+
+            nodeData = self.file.readData(ofLength: recordSize)
+        } catch {
+            if self.isReadOnly {
+                nodeData = nil
+            } else if let writeFile = self.writeFile {
+                writeFile.seek(toFileOffset: offset)
+
+                let recordSizeData = writeFile.readData(ofLength: lengthOfRecordSize)
+
+                guard let recordSizeString = String(data: recordSizeData, encoding: .utf8) else {
+                    throw BTreeError.invalidRecordSize
+                }
+
+                guard let recordSize = Int(recordSizeString) else {
+                    throw BTreeError.invalidRecordSize
+                }
+
+                nodeData = writeFile.readData(ofLength: recordSize)
+            } else {
+                nodeData = nil
+            }
+        }
+
+        guard let actualNodeData = nodeData else {
+            throw BTreeError.invalidRecord
+        }
+
+        do {
+            var node = try self.decoder.decode(BTreeNode<Key, Value>.self, from: actualNodeData)
             node.storage = self
             node.offset = offset
 
