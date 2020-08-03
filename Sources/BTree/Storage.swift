@@ -150,24 +150,52 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
             try self.copy()
         }
 
-        self.file.seek(toFileOffset: 0)
-
-        let rootRecordOffsetData = self.file.readData(ofLength: rootRecordPointerSize)
-                
-        guard let rootRecordOffsetString = String(data: rootRecordOffsetData, encoding: .utf8) else {
-            throw BTreeError.invalidRecordSize
-        }
-        
-        guard let rootRecordOffset = UInt64(rootRecordOffsetString) else {
-            throw BTreeError.invalidRecordSize
-        }
-
         do {
-            var rootNode = try self.findNode(withOffset: rootRecordOffset)
-            rootNode.offset = rootRecordOffset
-            return rootNode
+            self.file.seek(toFileOffset: 0)
+
+            let rootRecordOffsetData = self.file.readData(ofLength: rootRecordPointerSize)
+
+            guard let rootRecordOffsetString = String(data: rootRecordOffsetData, encoding: .utf8) else {
+                throw BTreeError.invalidRecordSize
+            }
+
+            guard let rootRecordOffset = UInt64(rootRecordOffsetString) else {
+                throw BTreeError.invalidRecordSize
+            }
+
+            do {
+                var rootNode = try self.findNode(withOffset: rootRecordOffset)
+                rootNode.offset = rootRecordOffset
+                return rootNode
+            } catch {
+                throw BTreeError.invalidRootRecord
+            }
         } catch {
-            throw BTreeError.invalidRootRecord
+            if self.isReadOnly {
+                throw error
+            } else if let writeFile = self.writeFile {
+                writeFile.seek(toFileOffset: 0)
+
+                let rootRecordOffsetData = writeFile.readData(ofLength: rootRecordPointerSize)
+
+                guard let rootRecordOffsetString = String(data: rootRecordOffsetData, encoding: .utf8) else {
+                    throw BTreeError.invalidRecordSize
+                }
+
+                guard let rootRecordOffset = UInt64(rootRecordOffsetString) else {
+                    throw BTreeError.invalidRecordSize
+                }
+
+                do {
+                    var rootNode = try self.findNode(withOffset: rootRecordOffset)
+                    rootNode.offset = rootRecordOffset
+                    return rootNode
+                } catch {
+                    throw BTreeError.invalidRootRecord
+                }
+            }
+
+            throw error
         }
     }
 
