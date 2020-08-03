@@ -2,7 +2,7 @@
 //  Storage.swift
 //
 //
-//  Created by Emma Foster on 7/4/19.
+//  Created by Emma K Alexandra on 7/4/19.
 //
 import Foundation
 
@@ -16,6 +16,12 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
 
     /// File the B-Tree is stored  in
     private var file: FileHandle
+
+    private var writeFilePath: URL
+
+    private var writeFile: FileHandle? = nil
+
+    private let isReadOnly: Bool
 
     /// Delimiter records are split by on disk
     private let recordDelimiter = "\n"
@@ -45,50 +51,74 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     ///
     /// - parameter path: Location on disk to store a B-Tree.
     /// - throws: `BTreeError.unableToCreateStorage` if unable to write to disk
-    public init(path: URL) throws {
+    public init(path: URL, isReadOnly: Bool = false) throws {
         self.path = path
+        self.writeFilePath = URL(string: "\(path.absoluteString).tmp")!
+        self.isReadOnly = isReadOnly
 
         // Load storage file, if it exists
         do {
-            self.file = try FileHandle(forUpdating: path)
+            if self.isReadOnly {
+                self.file = try FileHandle(forReadingFrom: self.path)
 
+            } else {
+                self.file = try FileHandle(forUpdating: self.path)
+
+                try "".write(to: self.writeFilePath, atomically: false, encoding: .utf8)
+                self.writeFile = try FileHandle(forUpdating: self.writeFilePath)
+            }
         } catch {
             // Create new storage file if no storage file exists at given path
-            do {
-                try "".write(to: path, atomically: true, encoding: .utf8)
-                self.file = try FileHandle(forUpdating: path)
-
-            } catch {
-                throw BTreeError.unableToCreateStorage
-
+            if self.isReadOnly {
+                throw BTreeError.storageMarkedReadOnly
             }
 
+            do {
+                try "".write(to: self.path, atomically: false, encoding: .utf8)
+                self.file = try FileHandle(forUpdating: self.path)
+
+                try "".write(to: self.writeFilePath, atomically: false, encoding: .utf8)
+                self.writeFile = try FileHandle(forUpdating: self.writeFilePath)
+            } catch {
+                throw BTreeError.unableToCreateStorage
+            }
         }
 
         self.recordDelimiterAsData = self.recordDelimiter.data(using: .utf8)!
 
+        if !self.isReadOnly {
+            self.initialize()
+        }
     }
 
     /// Close the storage file on deinit
     deinit {
         self.close()
 
+        if let _ = self.writeFile {
+            try? FileManager.default.removeItem(at: self.writeFilePath)
+        }
     }
 
     // MARK: Operations
+
+    private func initialize() {
+        let zeroes = 0.toPaddedString() + self.recordDelimiter
+        self.writeFile!.seek(toFileOffset: 0)
+        self.writeFile!.write(zeroes.data(using: .utf8)!)
+
+    }
 
     /// If the storage currently used is empty
     ///
     /// - returns: `Bool`
     public func isEmpty() -> Bool {
         return self.file.seekToEndOfFile() == 0
-
     }
 
     /// Wrap up operations.
     public func close() {
         self.file.closeFile()
-
     }
 
     /// Save a new root to disk
@@ -97,21 +127,18 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     /// - returns: The offset of the root node in storage
     /// - throws: If unable to load the given node, or unable to write to disk
     public func saveRoot(_ node: BTreeNode<Key, Value>) throws -> UInt64 {
-        if self.isEmpty() {
-            let zeroes = 0.toPaddedString() + self.recordDelimiter
-            self.file.write(zeroes.data(using: .utf8)!)
-
+        guard let writeFile = self.writeFile else {
+            throw BTreeError.storageMarkedReadOnly
         }
 
         let offset = try self.append(node)
 
-        self.file.seek(toFileOffset: 0)
+        writeFile.seek(toFileOffset: 0)
 
         let offsetWithLeadingZeroes = offset.toPaddedString()
-        self.file.write(offsetWithLeadingZeroes.data(using: .utf8)!)
+        writeFile.write(offsetWithLeadingZeroes.data(using: .utf8)!)
 
         return offset
-
     }
 
     /// Read the current root from disk
@@ -119,31 +146,29 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     /// - returns: The root node
     /// - throws: If storage is corrupted, if root record is corrupted
     public func readRootNode() throws -> BTreeNode<Key, Value> {
+        if !(isReadOnly || self.writeFileIsEmpty) {
+            try self.copy()
+        }
+
         self.file.seek(toFileOffset: 0)
 
         let rootRecordOffsetData = self.file.readData(ofLength: rootRecordPointerSize)
                 
         guard let rootRecordOffsetString = String(data: rootRecordOffsetData, encoding: .utf8) else {
             throw BTreeError.invalidRecordSize
-            
         }
         
         guard let rootRecordOffset = UInt64(rootRecordOffsetString) else {
             throw BTreeError.invalidRecordSize
-            
         }
 
         do {
             var rootNode = try self.findNode(withOffset: rootRecordOffset)
             rootNode.offset = rootRecordOffset
             return rootNode
-
         } catch {
             throw BTreeError.invalidRootRecord
-
         }
-
-
     }
 
     /// Finds a node on disk
@@ -152,18 +177,20 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     /// - returns: The node, if it found on disk. Otherwise, nil
     /// - throws: If record is corrupted
     public func findNode(withOffset offset: UInt64) throws -> BTreeNode<Key, Value> {
+        if !(isReadOnly || self.writeFileIsEmpty) {
+            try self.copy()
+        }
+
         self.file.seek(toFileOffset: offset)
         
         let recordSizeData = self.file.readData(ofLength: lengthOfRecordSize)
         
         guard let recordSizeString = String(data: recordSizeData, encoding: .utf8) else {
             throw BTreeError.invalidRecordSize
-            
         }
         
         guard let recordSize = Int(recordSizeString) else {
             throw BTreeError.invalidRecordSize
-            
         }
         
         let nodeData = self.file.readData(ofLength: recordSize)
@@ -174,12 +201,9 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
             node.offset = offset
 
             return node
-
         } catch {
             throw BTreeError.invalidRecord
-
         }
-
     }
 
     /// Append a node to the current storage
@@ -190,10 +214,13 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
     func append(_ node: BTreeNode<Key, Value>) throws -> UInt64 {
         if !node.isLoaded {
             throw BTreeError.nodeIsNotLoaded
-
         }
 
-        let endOfFile = self.file.seekToEndOfFile()
+        guard let writeFile = self.writeFile else {
+            throw BTreeError.storageMarkedReadOnly
+        }
+
+        let nodeOffset = writeFile.seekToEndOfFile()
 
         let encodedNode = try self.encoder.encode(node)
         
@@ -202,37 +229,26 @@ public class Storage<Key: Comparable & Codable, Value: Codable> {
         dataToWrite.append(encodedNode)
         dataToWrite.append(self.recordDelimiterAsData)
 
-        self.file.write(dataToWrite)
+        writeFile.write(dataToWrite)
 
-        return endOfFile
-
+        return nodeOffset
     }
-
 }
 
-/// To retrieve the bytes of data
-extension Data {
-    var bytes : [UInt8]{
-        return [UInt8](self)
+extension Storage {
+    func copy() throws {
+        try FileManager.default.removeItem(at: self.path)
+        try FileManager.default.copyItem(at: self.writeFilePath, to: self.path)
+        try FileManager.default.removeItem(at: self.writeFilePath)
 
+        self.file = try FileHandle(forUpdating: self.path)
+
+        try "".write(to: self.writeFilePath, atomically: false, encoding: .utf8)
+        self.writeFile = try FileHandle(forUpdating: self.writeFilePath)
+        self.initialize()
     }
 
-}
-
-/// To convert large unsigned ints to 0 padded strings
-extension UInt64 {
-    func toPaddedString() -> String {
-        return String(format: "%019ld", self)
-        
+    var writeFileIsEmpty: Bool {
+        !self.isReadOnly && self.writeFile!.offsetInFile == 20
     }
-    
-}
-
-/// To convert ints to 0 padded strings
-extension Int {
-    func toPaddedString() -> String {
-        return String(format: "%019d", self)
-        
-    }
-    
 }

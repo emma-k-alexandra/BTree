@@ -93,7 +93,7 @@ final class BTreeTests: XCTestCase {
         var tempDirectory = FileManager.default.temporaryDirectory
         tempDirectory.appendPathComponent("testBTreeBasicInsert.db")
         
-        var tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory)
+        let tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory)
         
         let element = BTreeElement(key: TestKey(id: 0), value: TestValue(value: "A"))
         
@@ -107,7 +107,7 @@ final class BTreeTests: XCTestCase {
         var tempDirectory = FileManager.default.temporaryDirectory
         tempDirectory.appendPathComponent("testBTreeBasicInsert.db")
         
-        var tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory)
+        let tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory)
         let element = BTreeElement(key: TestKey(id: 0), value: TestValue(value: "A"))
         
         try! tree.insert(element)
@@ -122,7 +122,7 @@ final class BTreeTests: XCTestCase {
         var tempDirectory = FileManager.default.temporaryDirectory
         tempDirectory.appendPathComponent("testBTreeMultiInsert.db")
         
-        var tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory, minimumDegree: 2)
+        let tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory, minimumDegree: 2)
         
         let element = BTreeElement(key: TestKey(id: 0), value: TestValue(value: "A"))
         let element2 = BTreeElement(key: TestKey(id: 1), value: TestValue(value: "B"))
@@ -146,7 +146,7 @@ final class BTreeTests: XCTestCase {
         var tempDirectory = FileManager.default.temporaryDirectory
         tempDirectory.appendPathComponent("testBTreeHarderMultiInsert.db")
         
-        var tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory, minimumDegree: 2)
+        let tree = try! BTree<TestKey, TestValue>(storagePath: tempDirectory, minimumDegree: 2)
         
         let element = BTreeElement(key: TestKey(id: 0), value: TestValue(value: "A"))
         let element2 = BTreeElement(key: TestKey(id: 10), value: TestValue(value: "B"))
@@ -158,7 +158,7 @@ final class BTreeTests: XCTestCase {
         let element8 = BTreeElement(key: TestKey(id: 27), value: TestValue(value: "H"))
         let element9 = BTreeElement(key: TestKey(id: 21), value: TestValue(value: "I"))
         let element10 = BTreeElement(key: TestKey(id: 29), value: TestValue(value: "J"))
-        
+
         try! tree.insert(element)
         try! tree.insert(element2)
         try! tree.insert(element3)
@@ -169,9 +169,9 @@ final class BTreeTests: XCTestCase {
         try! tree.insert(element8)
         try! tree.insert(element9)
         try! tree.insert(element10)
-        
+
         XCTAssertEqual(try! tree.find(element10.key)?.value , element10.value.value)
-        
+
         try? FileManager.default.removeItem(at: tempDirectory)
         
     }
@@ -203,7 +203,7 @@ final class BTreeTests: XCTestCase {
         
     }
     
-    func testStorageReadRoot() {
+    func testStorageReadRoot() throws {
         var tempDirectory = FileManager.default.temporaryDirectory
         tempDirectory.appendPathComponent("testStorageReadRoot.db")
         
@@ -215,7 +215,7 @@ final class BTreeTests: XCTestCase {
         
         XCTAssertNoThrow(try storage.readRootNode())
         
-        try? FileManager.default.removeItem(at: tempDirectory)
+        // try? FileManager.default.removeItem(at: tempDirectory)
         
     }
     
